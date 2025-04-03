@@ -1,0 +1,103 @@
+BSB – Aeroporto Internacional de Brasília
+
+CGH – Aeroporto de São Paulo/Congonhas
+
+GIG – Aeroporto Internacional do Rio de Janeiro/Galeão
+
+SSA – Aeroporto Internacional de Salvador
+
+FLN – Aeroporto Internacional de Florianópolis
+
+POA – Aeroporto Internacional de Porto Alegre
+
+VCP – Aeroporto Internacional de Viracopos/Campinas
+
+REC – Aeroporto Internacional do Recife
+
+CWB – Aeroporto Internacional de Curitiba
+
+BEL – Aeroporto Internacional de Belém
+
+VIX – Aeroporto de Vitória
+
+SDU – Aeroporto Santos Dumont (Rio de Janeiro)
+
+CGB – Aeroporto Internacional de Cuiabá
+
+CGR – Aeroporto Internacional de Campo Grande
+
+FOR – Aeroporto Internacional de Fortaleza
+
+MCP – Aeroporto Internacional de Macapá
+
+MGF – Aeroporto Regional de Maringá
+
+GYN – Aeroporto de Goiânia
+
+NVT – Aeroporto Internacional de Navegantes
+
+MAO – Aeroporto Internacional de Manaus
+
+NAT – Aeroporto Internacional de Natal
+
+BPS – Aeroporto Internacional de Porto Seguro
+
+MCZ – Aeroporto de Maceió
+
+PMW – Aeroporto de Palmas
+
+SLZ – Aeroporto Internacional de São Luís
+
+GRU – Aeroporto Internacional de São Paulo/Guarulhos
+
+LDB – Aeroporto de Londrina
+
+PVH – Aeroporto Internacional de Porto Velho
+
+RBR – Aeroporto Internacional de Rio Branco
+
+JOI – Aeroporto de Joinville
+
+UDI – Aeroporto de Uberlândia
+
+CXJ – Aeroporto Regional de Caxias do Sul
+
+IGU – Aeroporto Internacional de Foz do Iguaçu
+
+THE – Aeroporto de Teresina
+
+AJU – Aeroporto Internacional de Aracaju
+
+JPA – Aeroporto Internacional de João Pessoa
+
+PNZ – Aeroporto de Petrolina
+
+CNF – Aeroporto Internacional de Minas Gerais (Confins)
+
+BVB – Aeroporto Internacional de Boa Vista
+
+CPV – Aeroporto de Campina Grande
+
+STM – Aeroporto de Santarém
+
+IOS – Aeroporto de Ilhéus
+
+JDO – Aeroporto de Juazeiro do Norte
+
+IMP – Aeroporto de Imperatriz
+
+XAP – Aeroporto de Chapecó
+
+MAB – Aeroporto de Marabá
+
+CZS – Aeroporto Internacional de Cruzeiro do Sul
+
+PPB – Aeroporto de Presidente Prudente
+
+CFB – Aeroporto Internacional de Cabo Frio
+
+FEN – Aeroporto de Fernando de Noronha
+
+JTC – Aeroporto de Bauru
+
+MOC – Aeroporto de Montes Claros
