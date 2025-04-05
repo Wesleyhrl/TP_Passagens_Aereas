@@ -3,9 +3,11 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from itertools import permutations
+from bs4 import BeautifulSoup
 import time
 import os
 import datetime
+import random
 
 # Lista completa de aeroportos domésticos brasileiros
 AEROPORTOS_BR = [
@@ -23,6 +25,7 @@ AEROPORTOS_BR = [
 def setup_driver():
     options = webdriver.ChromeOptions()
     options.add_experimental_option("detach", True)
+    options.add_argument("--headless")
     driver = webdriver.Chrome(options=options)
     driver.maximize_window()
     return driver
@@ -92,20 +95,21 @@ def configurar_busca(driver, origem, destino, data):
 
 
 def coletar_dados(driver, origem, destino, data):
-    
+
     try:
         # Verificar primeiro se aparece a mensagem de "não há voos"
         try:
             WebDriverWait(driver, 6).until(
-                EC.text_to_be_present_in_element((By.CLASS_NAME, "QEk4oc.BgYkof"), "Não há nenhum voo para sua pesquisa")
+                EC.text_to_be_present_in_element(
+                    (By.CLASS_NAME, "QEk4oc.BgYkof"), "Não há nenhum voo para sua pesquisa")
             )
             print(f"Não há voos disponíveis para {origem}-{destino} em {data}")
-            
+            time.sleep(0.5)
             # Salvar a página mesmo sem voos (para registro)
-            html_content = driver.page_source
-            salvar_html(html_content, origem, destino, data)
+            html_content_limpo = clean_html(driver.page_source)
+            salvar_html(html_content_limpo, origem, destino, data)
             return True
-            
+
         except Exception as NenhumVooException:
             # Se não encontrou a mensagem de "sem voos", prossegue com o fluxo normal
             pass
@@ -117,27 +121,47 @@ def coletar_dados(driver, origem, destino, data):
                 EC.element_to_be_clickable((By.CLASS_NAME, 'zISZ5c.QB2Jof'))
             )
             button_mais_voos.click()
-            
+
             # Esperar até que "Mostrar menos voos" apareça
             WebDriverWait(driver, 6).until(
-                EC.text_to_be_present_in_element((By.CLASS_NAME, 'bEfgkb'), "Mostrar menos voos")
+                EC.text_to_be_present_in_element(
+                    (By.CLASS_NAME, 'bEfgkb'), "Mostrar menos voos")
             )
-            
+
             time.sleep(2)  # Espera adicional para garantir carregamento
-            
+
         except Exception as SemMaisVoosException:
             # Se não encontrar o botão "Mais voos", pode ser que já estejam todos carregados
             print("Botão 'Mais voos' não encontrado - provavelmente poucos resultados")
             pass
 
         # Capturar o HTML em qualquer caso
-        html_content = driver.page_source
-        salvar_html(html_content, origem, destino, data)
+        html_content_limpo = clean_html(driver.page_source)
+        salvar_html(html_content_limpo, origem, destino, data)
         return True
-        
+
     except Exception as e:
-        print(f"Erro ao coletar dados para {origem}-{destino} em {data}: {str(e)}")
+        print(
+            f"Erro ao coletar dados para {origem}-{destino} em {data}: {str(e)}")
         return False
+
+
+# Função para Limpar Html
+def clean_html(html_content):
+    soup = BeautifulSoup(html_content, 'html.parser')
+
+    # Remove as tags selecionas
+    for tag in soup(['script', 'link', 'style', 'noscript','svg','path']):
+        tag.decompose()
+
+    # Remove todos os atributos que começam com ...
+    for tag in soup.find_all(True):  # True = todas as tags
+        for attr in list(tag.attrs):  # Usando list() para evitar RuntimeError
+           if attr.startswith(('data-', 'js' )):  # Se o atributo começa com 'data-' 'js'
+                del tag.attrs[attr]  # Remove o atributo
+
+    return str(soup)
+
 
 # Função para salvar o HTML
 
@@ -167,7 +191,7 @@ def main():
     driver = setup_driver()
 
     # Definir período de 7 dias a partir de amanhã
-    data_inicio = datetime.datetime.strptime("01/05/2025", "%d/%m/%Y").date()
+    data_inicio = datetime.datetime.strptime("01/07/2025", "%d/%m/%Y").date()
     datas = [data_inicio + datetime.timedelta(days=i) for i in range(7)]
     datas_formatadas = [data.strftime("%d/%m/%Y") for data in datas]
 
@@ -190,7 +214,7 @@ def main():
                         total_erros += 1
 
                 # Pausa entre requisições para evitar bloqueio
-                time.sleep(4)
+                time.sleep(random.uniform(3, 5))
 
     finally:
         driver.quit()
