@@ -199,7 +199,7 @@ def salvar_html(html_content, origem, destino, data):
     with open(caminho_completo, "w", encoding="utf-8") as file:
         file.write(html_content)
 
-    registrar_log(f"Arquivo salvo: {nome_arquivo}")
+    print(f"Arquivo salvo: {nome_arquivo}")
 
 # CONSTANTES DE CONFIGURAÇÃO
 CONFIG = {
@@ -214,6 +214,7 @@ CONFIG = {
 def main():
     inicio_execucao = time.time()
     registrar_log("=== INÍCIO DA COLETA ===")
+    registrar_log(f"Data de Início de Busca: {CONFIG['DIA_INICIO']} - Período de coleta: {CONFIG['DIAS_COLETA']} Dias")
 
     driver = setup_driver()
 
@@ -234,7 +235,7 @@ def main():
                 
                 while not sucesso and tentativas < CONFIG['MAX_TENTATIVAS']:
                     try:
-                        registrar_log(f"Coletando ({tentativas+1}ª tentativa): {origem} -> {destino} em {data}")
+                        print(f"Coletando ({tentativas+1}ª tentativa): {origem} -> {destino} em {data}")
                         
                         if configurar_busca(driver, origem, destino, data):
                             if coletar_dados(driver, origem, destino, data):
@@ -253,12 +254,12 @@ def main():
                         
                         # Pausa estratégica entre requisições
                         pausa = random.uniform(*CONFIG['PAUSA_ENTRE_REQUISICOES'])
-                        registrar_log(f"Aguardando {pausa:.1f} segundos...")
+                        print(f"Aguardando {pausa:.1f} segundos...")
                         time.sleep(pausa)
                         
                     except Exception as e:
                         tentativas += 1
-                        print(f"Erro na tentativa {tentativas}: {str(e)}")
+                        registrar_log(f"Erro na tentativa {tentativas}: {str(e)}")
                         if tentativas >= CONFIG['MAX_TENTATIVAS']:
                             total_erros += 1
                             erros_seguidos += 1
