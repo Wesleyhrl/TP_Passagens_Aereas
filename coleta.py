@@ -9,6 +9,24 @@ import os
 import datetime
 import random
 
+timestamp_arquivo = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+#Registra mensagens no arquivo de log
+def registrar_log(mensagem):
+
+    log_dir = os.path.join(os.path.dirname(__file__), "logs")
+    os.makedirs(log_dir, exist_ok=True)
+    # Usa um timestamp único para o nome do arquivo
+    log_file = os.path.join(log_dir, f"log_coleta_voos_{timestamp_arquivo}.txt")
+    # Timestamp para as mensagens (formato mais legível)
+    timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    log_entry = f"{timestamp} - {mensagem}"
+    
+    with open(log_file, "a", encoding="utf-8") as f:
+        f.write(log_entry + "\n")
+    
+    # Também exibe no console
+    print(log_entry)
+
 # Lista completa de aeroportos domésticos brasileiros
 AEROPORTOS_BR = [
     'BSB', 'CGH', 'GIG', 'SSA', 'FLN', 'POA', 'VCP', 'REC', 'CWB', 'BEL',
@@ -141,8 +159,7 @@ def coletar_dados(driver, origem, destino, data):
         return True
 
     except Exception as e:
-        print(
-            f"Erro ao coletar dados para {origem}-{destino} em {data}: {str(e)}")
+        registrar_log(f"Erro ao coletar dados {origem}-{destino}", erro=True, detalhes_erro=str(e))
         return False
 
 
@@ -182,44 +199,80 @@ def salvar_html(html_content, origem, destino, data):
     with open(caminho_completo, "w", encoding="utf-8") as file:
         file.write(html_content)
 
-    print(f"Arquivo salvo: {caminho_completo}")
+    registrar_log(f"Arquivo salvo: {nome_arquivo}")
+
+# CONSTANTES DE CONFIGURAÇÃO
+CONFIG = {
+    'MAX_TENTATIVAS': 2,                  # Número máximo de tentativas por coleta
+    'PAUSA_ENTRE_REQUISICOES': (3, 5),    # Intervalo aleatório entre requisições (min, max)
+    'DIAS_COLETA': 7,                     # Período de coleta (dias)
+    'LIMITE_ERROS_SEGUIDOS': 3            # Máximo de erros consecutivos antes de parar
+}
 
 # Função principal
-
-
 def main():
+    inicio_execucao = time.time()
+    registrar_log("=== INÍCIO DA COLETA ===")
+
     driver = setup_driver()
 
-    # Definir período de 7 dias a partir de amanhã
+    # Definir período de dias de coleta
     data_inicio = datetime.datetime.strptime("01/07/2025", "%d/%m/%Y").date()
-    datas = [data_inicio + datetime.timedelta(days=i) for i in range(7)]
+    datas = [data_inicio + datetime.timedelta(days=i) for i in range(CONFIG['DIAS_COLETA'])]
     datas_formatadas = [data.strftime("%d/%m/%Y") for data in datas]
-
-    # Gerar todas as combinações de rotas (sem repetição de origem e destino)
-    rotas = permutations(AEROPORTOS_BR, 2)
-
-    # Contadores
+    
     total_coletado = 0
     total_erros = 0
+    erros_seguidos = 0  # Contador de erros consecutivos
 
     try:
-        for origem, destino in rotas:
+        for origem, destino in permutations(AEROPORTOS_BR, 2): # Gerar todas as combinações de rotas (sem repetição de origem e destino)
             for data in datas_formatadas:
-                print(f"\nColetando: {origem} -> {destino} em {data}")
-
-                if configurar_busca(driver, origem, destino, data):
-                    if coletar_dados(driver, origem, destino, data):
-                        total_coletado += 1
-                    else:
-                        total_erros += 1
-
-                # Pausa entre requisições para evitar bloqueio
-                time.sleep(random.uniform(3, 5))
-
+                tentativas = 0
+                sucesso = False
+                
+                while not sucesso and tentativas < CONFIG['MAX_TENTATIVAS']:
+                    try:
+                        registrar_log(f"Coletando ({tentativas+1}ª tentativa): {origem} -> {destino} em {data}")
+                        
+                        if configurar_busca(driver, origem, destino, data):
+                            if coletar_dados(driver, origem, destino, data):
+                                total_coletado += 1
+                                sucesso = True
+                                erros_seguidos = 0  # Resetar contador de erros
+                            else:
+                                total_erros += 1
+                                erros_seguidos += 1
+                                registrar_log(f"Falha ao coletar: {origem}-{destino} ({data})")
+                        
+                        # Verificar critério de parada por erros consecutivos
+                        if erros_seguidos >= CONFIG['LIMITE_ERROS_SEGUIDOS']:
+                            registrar_log(f"INTERRUPÇÃO: Muitos erros consecutivos ({erros_seguidos})")
+                            raise Exception("Limite de erros consecutivos atingido")
+                        
+                        # Pausa estratégica entre requisições
+                        pausa = random.uniform(*CONFIG['PAUSA_ENTRE_REQUISICOES'])
+                        registrar_log(f"Aguardando {pausa:.1f} segundos...")
+                        time.sleep(pausa)
+                        
+                    except Exception as e:
+                        tentativas += 1
+                        print(f"Erro na tentativa {tentativas}: {str(e)}")
+                        if tentativas >= CONFIG['MAX_TENTATIVAS']:
+                            total_erros += 1
+                            erros_seguidos += 1
+                        time.sleep(2)  # Pausa adicional após erro
+    except Exception as e:
+        registrar_log(f"ERRO GRAVE: {str(e)}")
     finally:
         driver.quit()
-        print(
-            f"\nColeta concluída! Total de páginas salvas: {total_coletado} | Erros: {total_erros}")
+        tempo_total = time.time() - inicio_execucao
+        
+        # Registra o resumo final
+        registrar_log("\n=== RESUMO FINAL ===")
+        registrar_log(f"Tempo total: {tempo_total/60:.2f} minutos")
+        registrar_log(f"Páginas salvas: {total_coletado}")
+        registrar_log(f"Erros: {total_erros}")
 
 
 if __name__ == "__main__":
