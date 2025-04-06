@@ -203,8 +203,9 @@ def salvar_html(html_content, origem, destino, data):
 
 # CONSTANTES DE CONFIGURAÇÃO
 CONFIG = {
+    'DIA_INICIO': "01/07/2025",
     'MAX_TENTATIVAS': 2,                  # Número máximo de tentativas por coleta
-    'PAUSA_ENTRE_REQUISICOES': (3, 5),    # Intervalo aleatório entre requisições (min, max)
+    'PAUSA_ENTRE_REQUISICOES': (2, 5),    # Intervalo aleatório entre requisições (min, max)
     'DIAS_COLETA': 7,                     # Período de coleta (dias)
     'LIMITE_ERROS_SEGUIDOS': 3            # Máximo de erros consecutivos antes de parar
 }
@@ -217,7 +218,7 @@ def main():
     driver = setup_driver()
 
     # Definir período de dias de coleta
-    data_inicio = datetime.datetime.strptime("01/07/2025", "%d/%m/%Y").date()
+    data_inicio = datetime.datetime.strptime(CONFIG['DIA_INICIO'], "%d/%m/%Y").date()
     datas = [data_inicio + datetime.timedelta(days=i) for i in range(CONFIG['DIAS_COLETA'])]
     datas_formatadas = [data.strftime("%d/%m/%Y") for data in datas]
     
