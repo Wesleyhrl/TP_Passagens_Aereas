@@ -1,3 +1,7 @@
 01_Coleta/coletas_html*
 01_Coleta/logs
-voos_processados.json
+voos_processados*.json
+indice_invertido*.json
+estatisticas*.json
+metadados_voos.json
+indice

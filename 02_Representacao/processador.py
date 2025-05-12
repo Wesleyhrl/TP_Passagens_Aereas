@@ -2,6 +2,53 @@ import os
 import json
 from bs4 import BeautifulSoup
 
+def formatar_dados(dados):
+    """Padroniza os dados para melhor indexação com tratamento especial"""
+    formatados = {}
+    
+    for campo, valor in dados.items():
+        if not valor:
+            formatados[campo] = ''
+            continue
+            
+        # Remove espaços não-quebráveis e caracteres especiais
+        valor = valor.replace('\xa0', ' ').strip()
+        
+        # Tratamento específico por campo
+        if campo == 'companhia':
+            if 'LATAM' in valor.upper():
+                formatados[campo] = 'LATAM'
+            else:
+                formatados[campo] = ' '.join(valor.split())  # Normaliza espaços
+
+        elif campo in ['partida', 'chegada']:
+            formatados[campo] = valor.replace(" ", "").replace("+", "+")  # Mantém o +1
+
+        elif campo == 'preco':
+            # Remove todos os espaços e formata R$ corretamente
+            preco_limpo = valor.replace(" ", "").replace("R$", "R$")
+            # Remove pontos de milhar se necessário (opcional)
+            formatados[campo] = preco_limpo.replace(".", "")
+
+        elif campo == 'duracao':
+            # Converte "7 h" para "7h" e "30 h 15 min" para "30h15min"
+            dur = valor.replace(" h ", "h").replace(" min", "").replace(" ", "")
+            formatados[campo] = dur
+
+        elif campo == 'escalas':
+            # Garante o formato "X_parada(s)"
+            esc = valor.lower()
+            if 'parada' in esc or 'paradas' in esc:
+                esc = esc.replace("paradas", "parada").replace(" ", "_")
+                formatados[campo] = esc
+            else:
+                formatados[campo] = valor.replace(" ", "_")
+
+        else:
+            formatados[campo] = valor
+            
+    return formatados
+
 def extrair_voos(html_content):
     """Extrai informações de voos do HTML do Google Flights"""
     soup = BeautifulSoup(html_content, 'lxml')
@@ -9,55 +56,53 @@ def extrair_voos(html_content):
 
     for card in soup.find_all('li', class_='pIav2d'):
         try:
+            # Extração dos dados brutos
+            dados_brutos = {
+                'companhia': '',
+                'partida': '',
+                'chegada': '',
+                'preco': 'Preço indisponível',
+                'duracao': '',
+                'escalas': ''
+            }
+
             # Companhia aérea
             companhia_div = card.find('div', class_='sSHqwe')
             if companhia_div:
-                raw_text = companhia_div.get_text(separator=' ', strip=True)
-                if 'LATAM' in raw_text.upper():
-                    companhia = 'LATAM Airlines Brasil'
-                else:
-                    companhia = raw_text
-            else:
-                companhia = ''
+                dados_brutos['companhia'] = companhia_div.get_text(separator=' ', strip=True)
 
             # Horários
             partida_div = card.find('div', attrs={'aria-label': lambda x: x and 'Horário de partida' in x})
             chegada_div = card.find('div', attrs={'aria-label': lambda x: x and 'Horário de chegada' in x})
-            partida = partida_div.get_text(strip=True) if partida_div else ''
-            chegada = chegada_div.get_text(strip=True) if chegada_div else ''
+            dados_brutos['partida'] = partida_div.get_text(strip=True) if partida_div else ''
+            dados_brutos['chegada'] = chegada_div.get_text(strip=True) if chegada_div else ''
 
             # Preço
             preco_element = card.select_one('div.YMlIz.FpEdX') or card.select_one('div.YMlIz.FpEdX.jLMuyc')
-            preco = preco_element.get_text(strip=True) if preco_element else 'Preço indisponível'
+            if preco_element:
+                dados_brutos['preco'] = preco_element.get_text(strip=True)
 
             # Duração
             duracao = card.find('div', class_='gvkrdb')
-            duracao = duracao.get_text(strip=True) if duracao else ''
+            if duracao:
+                dados_brutos['duracao'] = duracao.get_text(strip=True)
 
             # Escalas
             escalas_element = card.find('div', class_='EfT7Ae')
             if escalas_element:
                 span = escalas_element.find('span')
-                escalas = span.get_text(strip=True) if span else ''
-            else:
-                escalas = ''
+                if span:
+                    dados_brutos['escalas'] = span.get_text(strip=True)
 
-            voo = {
-                'companhia': companhia,
-                'partida': partida,
-                'chegada': chegada,
-                'preco': preco,
-                'duracao': duracao,
-                'escalas': escalas,
-            }
-            voos.append(voo)
+            # Formata os dados para indexação
+            voo_formatado = formatar_dados(dados_brutos)
+            voos.append(voo_formatado)
 
         except Exception as e:
             print(f"[Erro ao extrair voo]: {str(e)}")
             continue
 
     return voos
-
 
 def processar_coletas(pasta_coletas):
     dados = {}
@@ -95,7 +140,6 @@ def processar_coletas(pasta_coletas):
                         total_arquivos += 1
                         total_voos_extraidos += len(voos)
 
-                        # Log de progresso
                         if total_arquivos % 100 == 0:
                             print(f"Processados {total_arquivos} arquivos...")
 
@@ -103,15 +147,12 @@ def processar_coletas(pasta_coletas):
     print(f" - Total de arquivos processados: {total_arquivos}")
     print(f" - Total de voos extraídos: {total_voos_extraidos}")
 
-    # Garante que o diretório de saída exista
     os.makedirs('./02_Representacao', exist_ok=True)
 
-    # Salva o JSON final
     with open('./02_Representacao/voos_processados.json', 'w', encoding='utf-8') as f:
         json.dump(dados, f, ensure_ascii=False, indent=2)
 
     return dados
-
 
 if __name__ == "__main__":
     print("Iniciando processamento dos arquivos HTML...\n")
