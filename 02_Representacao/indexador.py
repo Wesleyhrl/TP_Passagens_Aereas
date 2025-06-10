@@ -20,7 +20,10 @@ class IndexadorVoos:
         # Stemmer em português para redução de palavras à raiz
         self.stemmer = RSLPStemmer()
         # Campos que serão indexados
-        self.campos_indice = ["companhia", "escalas", "duracao", "origem", "destino", "preco"]
+        self.campos_indice = [
+            "companhia", "escalas", "duracao", 
+            "origem", "destino", "cod_origem", "cod_destino", "preco"
+        ]
     
     def preprocessar_texto(self, texto):
         """
@@ -63,14 +66,18 @@ class IndexadorVoos:
             return "p_nd"  # Retorna categoria para preço não disponível
         
         # Classifica em faixas de preço
-        if valor <= 500: return "p_0_500"
-        if valor <= 1000: return "p_501_1000"
-        if valor <= 2000: return "p_1001_2000"
-        return "p_2000+"
+        if valor <= 250: return "p_0_250"
+        if valor <= 500: return "p_251_500"
+        if valor <= 750: return "p_501_750"
+        if valor <= 1000: return "p_751_1000"
+        if valor <= 1500: return "p_1001_1500"
+        if valor <= 2000: return "p_1501_2000"
+        if valor <= 3000: return "p_2001_3000"
+        return "p_3000m"
     
     def construir_indice(self, arquivo_json, pasta_saida='./02_Representacao/indice'):
         """
-        Método principal que constrói e salva o índice invertido
+        Constrói e salva o índice invertido com frequência de termos por documento.
         
         Parâmetros:
             arquivo_json (str): Caminho para o arquivo JSON com os dados
@@ -81,52 +88,54 @@ class IndexadorVoos:
         # Carrega os dados do arquivo JSON
         with open(arquivo_json, 'r', encoding='utf-8') as f:
             dados = json.load(f)
-        
-        # Inicializa estrutura do índice invertido
-        # Usa defaultdict para automatizar criação de conjuntos
-        indice = {campo: defaultdict(set) for campo in self.campos_indice}
-        
-        # Processa cada documento (conjunto de voos)
+
+        # Índice com contagem (frequência) de termos por documento
+        indice = {campo: defaultdict(lambda: defaultdict(int)) for campo in self.campos_indice}
+
         for doc_id, info in dados.items():
-            # Origem e destino (sem pré-processamento, apenas lowercase)
-            if info.get("origem"):
-                indice["origem"][info["origem"].lower()].add(doc_id)
-            if info.get("destino"):
-                indice["destino"][info["destino"].lower()].add(doc_id)
-            
-            # Processa cada voo individual do documento
+            # Indexa nomes de cidades de origem e destino
+            for termo in self.preprocessar_texto(info.get("origem", "")):
+                indice["origem"][termo][doc_id] += 1
+            for termo in self.preprocessar_texto(info.get("destino", "")):
+                indice["destino"][termo][doc_id] += 1
+
+            # Códigos de aeroportos
+            if info.get("cod_origem"):
+                cod = info["cod_origem"].lower()
+                indice["cod_origem"][cod][doc_id] += 1
+            if info.get("cod_destino"):
+                cod = info["cod_destino"].lower()
+                indice["cod_destino"][cod][doc_id] += 1
+
             for voo in info["voos"]:
-                # Campos textuais (companhia, escalas, duração)
                 for campo in ["companhia", "escalas", "duracao"]:
                     for termo in self.preprocessar_texto(voo.get(campo, "")):
-                        indice[campo][termo].add(doc_id)
+                        indice[campo][termo][doc_id] += 1
                 
-                # Campo de preço (tratamento especial por categorias)
+                # Preço categorizado
                 if "preco" in voo:
                     categoria = self.processar_preco(voo["preco"])
-                    indice["preco"][categoria].add(doc_id)
-        
-        # Cria pasta de saída se não existir
+                    indice["preco"][categoria][doc_id] += 1
+
         os.makedirs(pasta_saida, exist_ok=True)
         path_indice = os.path.join(pasta_saida, 'indice_invertido_por_campo.json')
-        
-        # Converte sets para lists para serialização JSON
+
+        # Prepara para salvar: defaultdict -> dict
         indice_serializavel = {
-            campo: {termo: list(docs) for termo, docs in termos.items()}
-            for campo, termos in indice.items()
+            campo: {
+                termo: dict(doc_freq) for termo, doc_freq in termos.items()
+            } for campo, termos in indice.items()
         }
-        
-        # Salva o índice invertido em arquivo JSON
+
         with open(path_indice, 'w', encoding='utf-8') as f:
             json.dump(indice_serializavel, f, ensure_ascii=False, indent=2)
-        
-        # Gera e salva estatísticas do processo
+
         estatisticas = self._gerar_estatisticas(indice_serializavel, path_indice, inicio)
         path_estat = os.path.join(pasta_saida, 'estatisticas_indexacao.json')
-        
+
         with open(path_estat, 'w', encoding='utf-8') as f:
             json.dump(estatisticas, f, ensure_ascii=False, indent=2)
-        
+
         print(f"Índice salvo em {path_indice}")
         print(f"Estatísticas salvas em {path_estat}")
     

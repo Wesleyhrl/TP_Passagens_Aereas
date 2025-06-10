@@ -133,17 +133,31 @@ def extrair_voos(html_content):
 
     return voos
 
-def processar_coletas(pasta_coletas):
-    """
-    Processa todos os arquivos HTML de coletas de voos.
-    
-    Parâmetros:
-        pasta_coletas (str): Caminho para a pasta contendo os arquivos HTML
+def extrair_nomes_cidades(html_content):
+    try:
+        soup = BeautifulSoup(html_content, 'lxml')
         
-    Retorna:
-        dict: Dicionário com todos os voos processados organizados por chave única
-    """
-    dados = {}  # Armazenará todos os dados processados
+        # Encontrar todas as divs que representam campos de cidade (origem e destino)
+        divs_cidades = soup.find_all('div', class_='V00Bye ESCxub KckZb')
+
+        if len(divs_cidades) >= 2:
+            # Pega o input de cada div
+            origem_input = divs_cidades[0].find('input')
+            destino_input = divs_cidades[1].find('input')
+
+            # Extrai os valores (nomes das cidades)
+            nome_origem = origem_input['value'].strip() if origem_input and origem_input.has_attr('value') else ''
+            nome_destino = destino_input['value'].strip() if destino_input and destino_input.has_attr('value') else ''
+
+            return nome_origem, nome_destino
+    except Exception as e:
+        print(f"[Erro ao extrair nomes de cidades]: {str(e)}")
+    
+    return '', ''
+
+
+def processar_coletas(pasta_coletas):
+    dados = {}
     total_arquivos = 0
     total_voos_extraidos = 0
 
@@ -155,17 +169,18 @@ def processar_coletas(pasta_coletas):
             # Percorre cada arquivo HTML na pasta de origem
             for arquivo in os.listdir(pasta_origem):
                 if arquivo.endswith('.html'):
-                    # Extrai destino e data do nome do arquivo (formato: voos_ORIGEM_DESTINO_DATA.html)
                     partes = arquivo.split('_')
                     if len(partes) >= 3:
                         destino = partes[1]
                         data = partes[2].replace('.html', '')
-
                         caminho_arquivo = os.path.join(pasta_origem, arquivo)
+
                         try:
                             # Lê o arquivo e extrai os voos
                             with open(caminho_arquivo, 'r', encoding='utf-8') as f:
-                                voos = extrair_voos(f.read()) #f Extrai o voos
+                                html_content = f.read()
+                                voos = extrair_voos(html_content)
+                                nome_origem, nome_destino = extrair_nomes_cidades(html_content)
                         except Exception as e:
                             print(f"[Erro ao ler arquivo]: {arquivo} - {str(e)}")
                             continue
@@ -173,8 +188,10 @@ def processar_coletas(pasta_coletas):
                         # Cria chave única para agrupamento (ORIGEM_DESTINO_DATA)
                         chave = f"{origem}_{destino}_{data}"
                         dados[chave] = {
-                            'origem': origem,
-                            'destino': destino,
+                            'origem': nome_origem,
+                            'destino': nome_destino,
+                            'cod_origem': origem,
+                            'cod_destino': destino,
                             'data': data,
                             'total_voos': len(voos),
                             'voos': voos
@@ -204,4 +221,4 @@ def processar_coletas(pasta_coletas):
 if __name__ == "__main__":
     print("Iniciando processamento dos arquivos HTML...\n")
     dados_voos = processar_coletas("./01_Coleta/coletas_html")
-    print("\nConcluído! Resultados salvos em: ./02_Representacao/voos_processados.json")
+    print("\nConcluído! Resultados salvos em: ./02_Representacao/voos_processados1.json")
