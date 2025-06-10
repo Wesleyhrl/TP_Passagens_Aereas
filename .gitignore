@@ -5,3 +5,4 @@ indice_invertido*.json
 estatisticas*.json
 metadados_voos.json
 indice
+__pycache__
