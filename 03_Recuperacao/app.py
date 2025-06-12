@@ -15,6 +15,8 @@ def index():
         return redirect(url_for('index',
                                 origem=request.form.get("origem", ""),
                                 destino=request.form.get("destino", ""),
+                                cod_origem=request.form.get("cod_origem", ""),
+                                cod_destino=request.form.get("cod_destino", ""),
                                 companhia=request.form.get("companhia", ""),
                                 preco=request.form.get("preco", ""),
                                 escalas=request.form.get("escalas", "")))
@@ -22,11 +24,12 @@ def index():
     consulta = {
         "origem": request.args.get("origem", ""),
         "destino": request.args.get("destino", ""),
+        "cod_origem": request.args.get("cod_origem", ""),
+        "cod_destino": request.args.get("cod_destino", ""),
         "companhia": request.args.get("companhia", ""),
         "preco": request.args.get("preco", ""),
         "escalas": request.args.get("escalas", "")
     }
-
     resultados = buscador.buscar(consulta) if any(consulta.values()) else None
 
     return render_template("index.html", resultados=resultados, consulta=consulta)
