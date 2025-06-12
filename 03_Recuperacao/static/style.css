@@ -27,6 +27,9 @@ h1 {
     font-weight: 500;
 }
 
-.results-container {
-
+.logo {
+    max-width: 140px;
+    width: 80%;
+    height: auto;
+    margin-bottom: -80px;
 }
