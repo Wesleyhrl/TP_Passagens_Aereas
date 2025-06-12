@@ -29,6 +29,11 @@
                 <p class="mb-1"><strong><i class="fas fa-calendar-alt"></i> Data:</strong> {{ documento.data }}</p>
                 <p class="mb-0"><strong><i class="fas fa-list-ol"></i> Total de Voos:</strong> {{ documento.total_voos
                     }}</p>
+
+                <a href="{{ url_for('estatisticas_documento', doc_id=documento.doc_id) }}" class="btn btn-primary mt-2">
+                    <i class="fas fa-chart-bar"></i> Ver Estatísticas
+                </a>
+
             </div>
         </div>
 
