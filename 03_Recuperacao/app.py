@@ -35,8 +35,21 @@ def documento(doc_id):
     documento = buscador.get_documento_por_id(doc_id)
     if not documento:
         return "Erro no documento."
-        #return render_template('404.html'), 404  # você pode criar uma página 404 depois
     return render_template('documento.html', documento=documento)
+
+@app.route('/documento/<doc_id>/estatisticas')
+def estatisticas_documento(doc_id):
+    documento = buscador.get_documento_por_id(doc_id)
+    if not documento:
+        return "Documento não encontrado.", 404
+    
+    estatisticas = buscador.calcular_estatisticas_documento(doc_id)
+    
+    return render_template(
+        'estatisticas.html',
+        documento=documento,
+        estatisticas=estatisticas
+    )
 
 if __name__ == '__main__':
     app.run(debug=True)

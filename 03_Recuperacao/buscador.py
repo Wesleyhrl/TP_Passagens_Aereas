@@ -135,3 +135,126 @@ class Buscador:
             "total_voos": metadados.get("total_voos"),
             "voos": metadados.get("voos", [])
         }
+    
+    def calcular_estatisticas_documento(self, doc_id):
+        documento = self.get_documento_por_id(doc_id)
+        if not documento or not documento.get("voos"):
+            return None
+
+        voos = documento["voos"]
+        
+        # Pré-processamento dos dados
+        voos_processados = []
+        for voo in voos:
+            try:
+                # Converte preço para float
+                preco = float(voo["preco"].replace("R$", "").replace(".", "").replace(",", "."))
+                
+                # Converte duração para minutos
+                duracao = 0
+                if "h" in voo["duracao"]:
+                    horas, minutos = voo["duracao"].split("h")
+                    duracao = int(horas) * 60
+                    if minutos:
+                        duracao += int(minutos.replace("m", ""))
+                
+                # Processa escalas
+                escalas = 0
+                if "Sem_escalas" in voo["escalas"]:
+                    escalas = 0
+                elif "_parada" in voo["escalas"]:
+                    escalas = int(voo["escalas"].split("_")[0])
+                
+                voos_processados.append({
+                    **voo,
+                    "preco_float": preco,
+                    "duracao_minutos": duracao,
+                    "num_escalas": escalas
+                })
+            except (ValueError, AttributeError):
+                continue
+        
+        if not voos_processados:
+            return None
+
+        # Estatísticas básicas
+        precos = [v["preco_float"] for v in voos_processados]
+        duracoes = [v["duracao_minutos"] for v in voos_processados]
+        companhias = [v["companhia"] for v in voos_processados]
+        
+        estatisticas = {
+            "total_voos": len(voos_processados),
+            "preco_medio": round(sum(precos) / len(precos), 2),
+            "preco_min": min(precos),
+            "preco_max": max(precos),
+            "duracao_media": round(sum(duracoes) / len(duracoes)),
+            "duracao_min": min(duracoes),
+            "duracao_max": max(duracoes),
+            "companhias_disponiveis": list(set(companhias)),
+            "voos_por_companhia": {},
+            "melhor_custo_beneficio": [],
+            "voos_mais_baratos": [],
+            "voos_mais_rapidos": [],
+            "voos_sem_escalas": []
+        }
+
+        # Voos por companhia
+        for companhia in estatisticas["companhias_disponiveis"]:
+            voos_companhia = [v for v in voos_processados if v["companhia"] == companhia]
+            precos_companhia = [v["preco_float"] for v in voos_companhia]
+            
+            estatisticas["voos_por_companhia"][companhia] = {
+                "quantidade": len(voos_companhia),
+                "preco_medio": round(sum(precos_companhia) / len(precos_companhia), 2),
+                "preco_min": min(precos_companhia),
+                "preco_max": max(precos_companhia)
+            }
+
+        # Melhor custo-benefício (preço por minuto de voo)
+        for voo in voos_processados:
+            if voo["duracao_minutos"] > 0:
+                custo_beneficio = voo["preco_float"] / voo["duracao_minutos"]
+            else:
+                custo_beneficio = float('inf')
+            
+            estatisticas["melhor_custo_beneficio"].append({
+                **{k: v for k, v in voo.items() if k not in ["preco_float", "duracao_minutos", "num_escalas"]},
+                "custo_beneficio": round(custo_beneficio, 4)
+            })
+        
+        # Ordena por custo-benefício (menor é melhor)
+        estatisticas["melhor_custo_beneficio"].sort(key=lambda x: x["custo_beneficio"])
+
+        # Voos mais baratos
+        estatisticas["voos_mais_baratos"] = sorted(
+            voos_processados, 
+            key=lambda x: x["preco_float"]
+        )[:10]  # Top 10 mais baratos
+
+        # Voos mais rápidos
+        estatisticas["voos_mais_rapidos"] = sorted(
+            voos_processados, 
+            key=lambda x: x["duracao_minutos"]
+        )[:10]  # Top 10 mais rápidos
+
+        # Voos sem escalas
+        estatisticas["voos_sem_escalas"] = [
+            v for v in voos_processados if v["num_escalas"] == 0
+        ]
+
+        # Formata os resultados para exibição
+        def formatar_voo(voo):
+            formatted = {**voo}
+            if "preco_float" in formatted:
+                formatted["preco"] = f"R${formatted['preco_float']:,.2f}".replace(".", ",").replace(",", ".", 1)
+            if "duracao_minutos" in formatted:
+                horas = formatted["duracao_minutos"] // 60
+                minutos = formatted["duracao_minutos"] % 60
+                formatted["duracao"] = f"{horas}h{minutos:02d}m" if minutos else f"{horas}h"
+            return formatted
+
+        # Aplica formatação aos voos nas estatísticas
+        for key in ["melhor_custo_beneficio", "voos_mais_baratos", "voos_mais_rapidos", "voos_sem_escalas"]:
+            estatisticas[key] = [formatar_voo(v) for v in estatisticas[key]]
+
+        return estatisticas
