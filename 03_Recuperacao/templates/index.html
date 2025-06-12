@@ -23,12 +23,24 @@
       <h1>Buscador de Voos ( Passagens Aéreas )</h1>
       <form method="POST" class="row g-3">
         <div class="col-md-6">
-          <label for="origem" class="form-label">Origem</label>
+          <label for="origem" class="form-label">Origem (Cidade)</label>
           <input type="text" name="origem" id="origem" class="form-control" value="{{ consulta.origem }}">
         </div>
         <div class="col-md-6">
-          <label for="destino" class="form-label">Destino</label>
+          <label for="cod_origem" class="form-label">Origem (Código)</label>
+          <input type="text" name="cod_origem" id="cod_origem" class="form-control" value="{{ consulta.cod_origem }}"
+            maxlength="3" placeholder="Ex: CNF">
+        </div>
+
+        <!-- Grupo Destino -->
+        <div class="col-md-6">
+          <label for="destino" class="form-label">Destino (Cidade)</label>
           <input type="text" name="destino" id="destino" class="form-control" value="{{ consulta.destino }}">
+        </div>
+        <div class="col-md-6">
+          <label for="cod_destino" class="form-label">Destino (Código)</label>
+          <input type="text" name="cod_destino" id="cod_destino" class="form-control" value="{{ consulta.cod_destino }}"
+            maxlength="3" placeholder="Ex: GRU">
         </div>
         <div class="col-md-6">
           <label for="companhia" class="form-label">Companhia</label>
@@ -125,6 +137,41 @@
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.6/dist/js/bootstrap.min.js"
     integrity="sha384-RuyvpeZCxMJCqVUGFI0Do1mQrods/hhxYlcVfGPOfQtPJh0JCw12tUAZ/Mv10S7D"
     crossorigin="anonymous"></script>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', function () {
+      const origemInput = document.getElementById('origem');
+      const codOrigemInput = document.getElementById('cod_origem');
+      const destinoInput = document.getElementById('destino');
+      const codDestinoInput = document.getElementById('cod_destino');
+
+      // Desabilita campos correspondentes quando um é preenchido
+      function setupExclusiveInputs(mainInput, altInput) {
+        mainInput.addEventListener('input', function () {
+          if (this.value.trim() !== '') {
+            altInput.disabled = true;
+            altInput.value = '';
+          } else {
+            altInput.disabled = false;
+          }
+        });
+      }
+
+      setupExclusiveInputs(origemInput, codOrigemInput);
+      setupExclusiveInputs(codOrigemInput, origemInput);
+      setupExclusiveInputs(destinoInput, codDestinoInput);
+      setupExclusiveInputs(codDestinoInput, destinoInput);
+
+      // Para maiúsculas automático nos códigos
+      codOrigemInput.addEventListener('input', function () {
+        this.value = this.value.toUpperCase();
+      });
+
+      codDestinoInput.addEventListener('input', function () {
+        this.value = this.value.toUpperCase();
+      });
+    });
+  </script>
 </body>
 
 </html>

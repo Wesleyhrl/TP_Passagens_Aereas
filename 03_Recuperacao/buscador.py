@@ -58,7 +58,7 @@ class Buscador:
                 continue
 
             termos = self.preprocessar_texto(texto)
-            print(termos)
+
             peso_campo = self.pesos.get(campo, 1.0)
 
             for termo in termos:
