@@ -97,7 +97,8 @@ python indexador.py
 
 ```bash
 02_Representacao/
-├── indice_invertido_por_campo.json
+├── indice
+│   ├── indice_invertido_por_campo.json
 ```
 
 Este arquivo é consumido na etapa seguinte para responder consultas e fazer ranking dos documentos.
