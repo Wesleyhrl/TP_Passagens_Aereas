@@ -36,6 +36,14 @@ pip install -r requirements.txt
 
 #### ▶️ Como executar
 
+1. Navegue até a pasta:
+
+```bash
+cd 01_Coleta
+```
+
+2. Execute o:
+
 ```bash
 python coleta.py
 ```
