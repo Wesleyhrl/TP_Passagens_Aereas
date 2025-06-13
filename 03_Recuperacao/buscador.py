@@ -7,19 +7,21 @@ from nltk.stem import RSLPStemmer
 from nltk.tokenize import word_tokenize
 from collections import defaultdict
 
+# Baixa recursos necessários do NLTK
 nltk.download('punkt')
 nltk.download('stopwords')
 
-
 class Buscador:
     def __init__(self, caminho_indice):
+        """Inicializa o buscador carregando o índice invertido e dados processados"""
         with open(caminho_indice, 'r', encoding='utf-8') as f:
             self.indice = json.load(f)
 
-         # Carrega os dados dos voos processados
+        # Carrega os dados dos voos processados
         with open('./02_Representacao/voos_processados.json', 'r', encoding='utf-8') as f:
             self.voos_processados = json.load(f)
 
+        # Configurações para pré-processamento de texto
         self.stop_words = set(stopwords.words('portuguese'))
         self.stemmer = RSLPStemmer()
         self.campos = list(self.indice.keys())
@@ -27,16 +29,17 @@ class Buscador:
         # Número de documentos únicos para cálculo de IDF
         self.doc_count = self.contar_documentos()
 
-        # Pesos por campo
+        # Pesos por campo para cálculo de relevância
         self.pesos = {
-            "origem": 2.0,
+            "origem": 2.0,    # Maior peso para origem/destino
             "destino": 2.0,
-            "companhia": 1.6,
-            "preco": 1.0,
-            "escalas": 1.5
+            "companhia": 1.6, # Peso intermediário para companhia
+            "preco": 1.0,     # Menor peso para preço
+            "escalas": 1.5    # Peso intermediário para escalas
         }
 
     def contar_documentos(self):
+        """Calcula o número total de documentos únicos no índice"""
         docs = set()
         for campo in self.indice:
             for termo in self.indice[campo]:
@@ -44,21 +47,29 @@ class Buscador:
         return len(docs)
 
     def preprocessar_texto(self, texto):
+        """Realiza pré-processamento do texto: tokenização, limpeza e stemming"""
         if not texto:
             return []
+            
+        # Tokenização e normalização
         tokens = word_tokenize(texto.lower(), language='portuguese')
+        
+        # Remove caracteres não alfanuméricos
         tokens = [re.sub(r'\W+', '', t) for t in tokens if re.match(r'\w+', t)]
+        
+        # Stemming e remoção de stopwords
         return [self.stemmer.stem(t) for t in tokens if t not in self.stop_words and t != '']
 
     def buscar(self, consulta_dict):
-        pontuacoes = defaultdict(float)
+        """Executa a busca com base nos parâmetros da consulta"""
+        pontuacoes = defaultdict(float)  # Armazena scores dos documentos
 
         for campo, texto in consulta_dict.items():
             if campo not in self.indice:
                 continue
 
+            # Pré-processa os termos da consulta
             termos = self.preprocessar_texto(texto)
-
             peso_campo = self.pesos.get(campo, 1.0)
 
             for termo in termos:
@@ -66,38 +77,43 @@ class Buscador:
                     continue
 
                 postings = self.indice[campo][termo]
-                df = len(postings)
-                idf = math.log((self.doc_count + 1) / (df + 1)
-                               ) + 1  # IDF com suavização
+                df = len(postings)  # Document frequency
+                
+                # IDF com suavização para evitar divisão por zero
+                idf = math.log((self.doc_count + 1) / (df + 1)) + 1
 
+                # Calcula TF-IDF para cada documento que contém o termo
                 for doc_id, tf in postings.items():
-                    # maior tf do termo nesse campo
+                    # Normaliza TF pelo máximo no campo
                     max_tf = max(postings.values())
+                    # Calcula a pontuação (score) do documento para o termo atual
                     pontuacoes[doc_id] += (tf / max_tf) * idf * peso_campo
 
-        # Resultados ordenados por score decrescente
+        # Ordena resultados por score decrescente
         resultados_ordenados = dict(
             sorted(pontuacoes.items(), key=lambda x: x[1], reverse=True))
 
-        # Monta resultado com metadados
-        resultados_completos = []
+        # Prepara termos da consulta para highlight(destaque) nos resultados
         termos_consulta = {
             campo: self.preprocessar_texto(texto)
             for campo, texto in consulta_dict.items()
             if campo in self.pesos
         }
 
-        for doc_id, score in list(resultados_ordenados.items())[:100]:
+        # Monta resposta final com metadados
+        resultados_completos = []
+        for doc_id, score in list(resultados_ordenados.items())[:100]:  # Limita a 100 resultados
             metadados = self.voos_processados.get(doc_id)
             if not metadados:
                 continue
 
+            # Calcula relevância dos voos individuais
             voos = metadados.get("voos", [])
             voos_com_scores = []
-
+            
             for voo in voos:
                 score_voo = 0.0
-                for campo in ['companhia', 'escalas']:
+                for campo in ['companhia', 'escalas']:  # Campos para highlight(destaque)
                     if campo in termos_consulta:
                         texto_voo = str(voo.get(campo, "")).lower()
                         for termo in termos_consulta[campo]:
@@ -105,7 +121,7 @@ class Buscador:
                                 score_voo += self.pesos.get(campo, 1.0)
                 voos_com_scores.append((voo, score_voo))
 
-            # Ordena e pega até 6 voos com maior score
+            # Seleciona os voos mais relevantes (até 6)
             voos_relevantes = [v for v, _ in sorted(
                 voos_com_scores, key=lambda x: x[1], reverse=True)[:6]]
 
@@ -122,6 +138,7 @@ class Buscador:
         return resultados_completos
 
     def get_documento_por_id(self, doc_id):
+        """Recupera um documento completo pelo seu ID"""
         metadados = self.voos_processados.get(doc_id)
         if not metadados:
             return None
@@ -137,13 +154,14 @@ class Buscador:
         }
     
     def calcular_estatisticas_documento(self, doc_id):
+        """Calcula estatísticas avançadas para um documento específico"""
         documento = self.get_documento_por_id(doc_id)
         if not documento or not documento.get("voos"):
             return None
 
         voos = documento["voos"]
         
-        # Pré-processamento dos dados
+        # Pré-processamento dos dados dos voos
         voos_processados = []
         for voo in voos:
             try:
@@ -158,7 +176,7 @@ class Buscador:
                     if minutos:
                         duracao += int(minutos.replace("m", ""))
                 
-                # Processa escalas
+                # Processa número de escalas
                 escalas = 0
                 if "Sem_escalas" in voo["escalas"]:
                     escalas = 0
@@ -166,18 +184,18 @@ class Buscador:
                     escalas = int(voo["escalas"].split("_")[0])
                 
                 voos_processados.append({
-                    **voo,
-                    "preco_float": preco,
-                    "duracao_minutos": duracao,
-                    "num_escalas": escalas
+                    **voo,  # Mantém todos os dados originais
+                    "preco_float": preco,          # Preço como float
+                    "duracao_minutos": duracao,    # Duração em minutos
+                    "num_escalas": escalas         # Número de escalas como int
                 })
             except (ValueError, AttributeError):
-                continue
+                continue  # Ignora voos com formato inválido
         
         if not voos_processados:
             return None
 
-        # Estatísticas básicas
+        # Cálculo de estatísticas básicas
         precos = [v["preco_float"] for v in voos_processados]
         duracoes = [v["duracao_minutos"] for v in voos_processados]
         companhias = [v["companhia"] for v in voos_processados]
@@ -198,7 +216,7 @@ class Buscador:
             "voos_sem_escalas": []
         }
 
-        # Voos por companhia
+        # Estatísticas por companhia aérea
         for companhia in estatisticas["companhias_disponiveis"]:
             voos_companhia = [v for v in voos_processados if v["companhia"] == companhia]
             precos_companhia = [v["preco_float"] for v in voos_companhia]
@@ -210,7 +228,7 @@ class Buscador:
                 "preco_max": max(precos_companhia)
             }
 
-        # Melhor custo-benefício (preço por minuto de voo)
+        # Cálculo de custo-benefício(custo-tempo) (preço por minuto)
         for voo in voos_processados:
             if voo["duracao_minutos"] > 0:
                 custo_beneficio = voo["preco_float"] / voo["duracao_minutos"]
@@ -222,27 +240,13 @@ class Buscador:
                 "custo_beneficio": round(custo_beneficio, 4)
             })
         
-        # Ordena por custo-benefício (menor é melhor)
+        # Ordenações diversas
         estatisticas["melhor_custo_beneficio"].sort(key=lambda x: x["custo_beneficio"])
+        estatisticas["voos_mais_baratos"] = sorted(voos_processados, key=lambda x: x["preco_float"])[:10]
+        estatisticas["voos_mais_rapidos"] = sorted(voos_processados, key=lambda x: x["duracao_minutos"])[:10]
+        estatisticas["voos_sem_escalas"] = [v for v in voos_processados if v["num_escalas"] == 0]
 
-        # Voos mais baratos
-        estatisticas["voos_mais_baratos"] = sorted(
-            voos_processados, 
-            key=lambda x: x["preco_float"]
-        )[:10]  # Top 10 mais baratos
-
-        # Voos mais rápidos
-        estatisticas["voos_mais_rapidos"] = sorted(
-            voos_processados, 
-            key=lambda x: x["duracao_minutos"]
-        )[:10]  # Top 10 mais rápidos
-
-        # Voos sem escalas
-        estatisticas["voos_sem_escalas"] = [
-            v for v in voos_processados if v["num_escalas"] == 0
-        ]
-
-        # Formata os resultados para exibição
+        # Função auxiliar para formatação de exibição
         def formatar_voo(voo):
             formatted = {**voo}
             if "preco_float" in formatted:
@@ -253,7 +257,7 @@ class Buscador:
                 formatted["duracao"] = f"{horas}h{minutos:02d}m" if minutos else f"{horas}h"
             return formatted
 
-        # Aplica formatação aos voos nas estatísticas
+        # Aplica formatação aos resultados
         for key in ["melhor_custo_beneficio", "voos_mais_baratos", "voos_mais_rapidos", "voos_sem_escalas"]:
             estatisticas[key] = [formatar_voo(v) for v in estatisticas[key]]
 
