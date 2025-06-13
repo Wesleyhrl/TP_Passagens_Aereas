@@ -4,5 +4,5 @@ voos_processados*.json
 indice_invertido*.json
 estatisticas*.json
 metadados_voos.json
-indice
+indice*
 __pycache__
